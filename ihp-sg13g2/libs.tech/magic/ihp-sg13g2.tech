@@ -41,7 +41,7 @@ end
 # Rparasitic					??
 # rsil			 	nres		Salicided n+ poly
 # rppd				pres		Unsalicided p+ poly
-# rhigh				xres		Unsalicided n+ poly TODO n-doped
+# rhigh				xres		Unsalicided n+ poly
 #
 # npn13g2			npn		NPN W=0.07um L=0.9um
 # npn13g2l			npn		NPN W=0.07um L=1.0-2.5um
@@ -288,7 +288,7 @@ aliases
   allndiffhvnontap *hvndif,hvnfet,hvnfetesd
   allpdiffhvnontap *hvpdif,hvpfet,hvpfetesd
   alldiffhvnontap  allndiffhvnontap,allpdiffhvnontap
-  allndiffhvnonfet *hvndif,*hvnsd # TODO hvndiffres
+  allndiffhvnonfet *hvndif,*hvnsd
   allpdiffhvnonfet *hvpdif,*hvpsd
   alldiffhvnonfet  allndiffhvnonfet,allpdiffhvnonfet
 
@@ -4179,9 +4179,10 @@ extract
 
  # Antenna check parameters
  # Note that checks w/diode diffusion are not modeled
- model partial
+ # TBD: add ratio with protection diode
+ model cumulative
  antenna poly surface 200 none
- antenna m1,m2,m3,m4,m5,m6,m7 surface 200 none # TODO use allm1? includes rm1
+ antenna allm1,allm2,allm3,allm4,allm5,allm6,allm7 surface 200 none
  antenna allcont surface 20 none
  antenna v1,v2,v3,4,v5,v6 surface 20 none
 
@@ -4193,72 +4194,95 @@ extract
 # Optional 3rd argument is the corner adjustment fraction
 # Device values come from trtc.cor (typical corner)
 
-variants (),(lvs) # TODO (lvs) ?
+# Note: value for pwell is from
+# SG13G2 Layout Rules Rev. 0.3
+# Section 6.5 nmosi and nmosiHV
+# average sheet resistance of 3 kΩ
 
- resist (pwell,isosub)/well      3000000
+variants ()
 
- # resist hvndiffres/active         120000 0.5
- # Finish this section. . .
+ # TBD values for nwell, dnwell
 
- resist (allm1)/metal1       110
- resist (allm2)/metal2        88
- resist (allm3)/metal3        88
- resist (allm4)/metal4        88
- resist (allm5)/metal5        88
- resist (allm6)/metal6        18
- resist (allm7)/metal7        11
+ resist (pwell,isosub)/well  3000000
+ resist ndiffres/active        67000
+ resist pdiffres/active        79000
+ resist hvndiffres/active      67000
+ resist hvpdiffres/active      79000
+ resist (allm1)/metal1           110
+ resist (allm2)/metal2            88
+ resist (allm3)/metal3            88
+ resist (allm4)/metal4            88
+ resist (allm5)/metal5            88
+ resist (allm6)/metal6            18
+ resist (allm7)/metal7            11
  
- contact via1       9000
- contact via2       9000
- contact via3       9000
- contact via4       9000
- contact via5       2200
- contact via6       1100
+ contact alldiffcont   17000
+ contact pc            15000
+ contact via1           9000
+ contact via2           9000
+ contact via3           9000
+ contact via4           9000
+ contact via5           2200
+ contact via6           1100
 
 variants (hrhc),(hrlc)
 
  # High-end corner resistances
 
- resist (allm1)/metal1       135
- resist (allm2)/metal2       103
- resist (allm3)/metal3       103
- resist (allm4)/metal4       103
- resist (allm5)/metal5       103
- resist (allm6)/metal6        21
- resist (allm7)/metal7        14.5
+ resist (pwell,isosub)/well  3000000
+ resist ndiffres/active        79000
+ resist pdiffres/active        89000
+ resist hvndiffres/active      79000
+ resist hvpdiffres/active      89000
+ resist (allm1)/metal1           135
+ resist (allm2)/metal2           103
+ resist (allm3)/metal3           103
+ resist (allm4)/metal4           103
+ resist (allm5)/metal5           103
+ resist (allm6)/metal6            21
+ resist (allm7)/metal7            14.5
 
- contact via1       20000
- contact via2       20000
- contact via3       20000
- contact via4       20000
- contact via5        4000
- contact via6        2200
+ contact alldiffcont   22000
+ contact pc            20000
+ contact via1          20000
+ contact via2          20000
+ contact via3          20000
+ contact via4          20000
+ contact via5           4000
+ contact via6           2200
 
 variants (lrhc),(lrlc)
 
  # Low-end corner resistances
 
- resist (allm1)/metal1       85
- resist (allm2)/metal2       73
- resist (allm3)/metal3       73
- resist (allm4)/metal4       73
- resist (allm5)/metal5       73
- resist (allm6)/metal6       15
- resist (allm7)/metal7        7.5
+ resist (pwell,isosub)/well  3000000
+ resist ndiffres/active        55000
+ resist pdiffres/active        69000
+ resist hvndiffres/active      55000
+ resist hvpdiffres/active      69000
+ resist (allm1)/metal1            85
+ resist (allm2)/metal2            73
+ resist (allm3)/metal3            73
+ resist (allm4)/metal4            73
+ resist (allm5)/metal5            73
+ resist (allm6)/metal6            15
+ resist (allm7)/metal7             7.5
 
- contact via1       5000
- contact via2       5000
- contact via3       5000
- contact via4       5000
- contact via5       1000
- contact via6        500
+ contact alldiffcont   8000
+ contact pc            8000
+ contact via1          5000
+ contact via2          5000
+ contact via3          5000
+ contact via4          5000
+ contact via5          1000
+ contact via6           500
 
 variants *
 
  # These types should not be considered as electrical nodes
- resist blocktypes	 	 None
- resist obstypes	 	 None
- resist comment	 	 	 None
+ resist blocktypes     None
+ resist obstypes       None
+ resist comment        None
 
 
 #-------------------------------------------------------------------------
@@ -4285,20 +4309,24 @@ variants *
 variants ()
 # Nominal capacitances
 
+# TBD: get approx. capacitance values for
+#      nwell, pwell, dnwell when reverse biased
+# (A proper solution would be to model as a diode)
+
 # Note: This section was auto-generated by capiche
 
 # gatpoly
- defaultsidewall    poly active 11.722 -0.023
- defaultareacap     poly active 87.433
- defaultperimeter   poly active 44.537
+ defaultsidewall    allpoly active 11.722 -0.023
+ defaultareacap     allpoly active 87.433
+ defaultperimeter   allpoly active 44.537
 
 # gatpoly->subs
- defaultoverlap     poly active pwell well  87.433
- defaultsideoverlap poly active pwell well  44.537
+ defaultoverlap     allpoly active pwell well  87.433
+ defaultsideoverlap allpoly active pwell well  44.537
 
 # gatpoly->nwell
- defaultoverlap     poly active nwell well  87.433
- defaultsideoverlap poly active nwell well  44.537
+ defaultoverlap     allpoly active nwell well  87.433
+ defaultsideoverlap allpoly active nwell well  44.537
 
 # metal1
  defaultsidewall    allm1 metal1 28.735 -0.057
@@ -4322,9 +4350,9 @@ variants ()
  defaultsideoverlap allm1 metal1 alldiffhvnonfet active  45.041
 
 # metal1->gatpoly
- defaultoverlap     allm1 metal1 poly active 78.653
- defaultsideoverlap allm1 metal1 poly active 49.378
- defaultsideoverlap poly active allm1 metal1 23.229
+ defaultoverlap     allm1 metal1 allpoly active 78.653
+ defaultsideoverlap allm1 metal1 allpoly active 49.378
+ defaultsideoverlap allpoly active allm1 metal1 23.229
 
 # metal2
  defaultsidewall    allm2 metal2 40.981 -0.033
@@ -4348,9 +4376,9 @@ variants ()
  defaultsideoverlap allm2 metal2 alldiffhvnonfet active  36.919
 
 # metal2->gatpoly
- defaultoverlap     allm2 metal2 poly active 25.537
- defaultsideoverlap allm2 metal2 poly active 37.616
- defaultsideoverlap poly active allm2 metal2 10.801
+ defaultoverlap     allm2 metal2 allpoly active 25.537
+ defaultsideoverlap allm2 metal2 allpoly active 37.616
+ defaultsideoverlap allpoly active allm2 metal2 10.801
 
 # metal2->metal1
  defaultoverlap     allm2 metal2 allm1 metal1 67.225
@@ -4379,9 +4407,9 @@ variants ()
  defaultsideoverlap allm3 metal3 alldiffhvnonfet active  32.495
 
 # metal3->gatpoly
- defaultoverlap     allm3 metal3 poly active 14.808
- defaultsideoverlap allm3 metal3 poly active 32.795
- defaultsideoverlap poly active allm3 metal3 7.068
+ defaultoverlap     allm3 metal3 allpoly active 14.808
+ defaultsideoverlap allm3 metal3 allpoly active 32.795
+ defaultsideoverlap allpoly active allm3 metal3 7.068
 
 # metal3->metal1
  defaultoverlap     allm3 metal3 allm1 metal1 23.122
@@ -4415,9 +4443,9 @@ variants ()
  defaultsideoverlap allm4 metal4 alldiffhvnonfet active  29.942
 
 # metal4->gatpoly
- defaultoverlap     allm4 metal4 poly active 10.427
- defaultsideoverlap allm4 metal4 poly active 30.101
- defaultsideoverlap poly active allm4 metal4 5.240
+ defaultoverlap     allm4 metal4 allpoly active 10.427
+ defaultsideoverlap allm4 metal4 allpoly active 30.101
+ defaultsideoverlap allpoly active allm4 metal4 5.240
 
 # metal4->metal1
  defaultoverlap     allm4 metal4 allm1 metal1 13.962
@@ -4456,9 +4484,9 @@ variants ()
  defaultsideoverlap allm5 metal5 alldiffhvnonfet active  28.221
 
 # metal5->gatpoly
- defaultoverlap     allm5 metal5 poly active 8.046
- defaultsideoverlap allm5 metal5 poly active 28.414
- defaultsideoverlap poly active allm5 metal5 4.178
+ defaultoverlap     allm5 metal5 allpoly active 8.046
+ defaultsideoverlap allm5 metal5 allpoly active 28.414
+ defaultsideoverlap allpoly active allm5 metal5 4.178
 
 # metal5->metal1
  defaultoverlap     allm5 metal5 allm1 metal1 10.000
@@ -4502,9 +4530,9 @@ variants ()
  defaultsideoverlap allm6 metal6 alldiffhvnonfet active  38.085
 
 # topmetal1->gatpoly
- defaultoverlap     allm6 metal6 poly active 6.204
- defaultsideoverlap allm6 metal6 poly active 38.376
- defaultsideoverlap poly active allm6 metal6 3.316
+ defaultoverlap     allm6 metal6 allpoly active 6.204
+ defaultsideoverlap allm6 metal6 allpoly active 38.376
+ defaultsideoverlap allpoly active allm6 metal6 3.316
 
 # topmetal1->metal1
  defaultoverlap     allm6 metal6 allm1 metal1 7.304
@@ -4553,9 +4581,9 @@ variants ()
  defaultsideoverlap allm7 metal7 alldiffhvnonfet active  30.835
 
 # topmetal2->gatpoly
- defaultoverlap     allm7 metal7 poly active 3.408
- defaultsideoverlap allm7 metal7 poly active 30.971
- defaultsideoverlap poly active allm7 metal7 1.909
+ defaultoverlap     allm7 metal7 allpoly active 3.408
+ defaultsideoverlap allm7 metal7 allpoly active 30.971
+ defaultsideoverlap allpoly active allm7 metal7 1.909
 
 # topmetal2->metal1
  defaultoverlap     allm7 metal7 allm1 metal1 3.716
