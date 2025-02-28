@@ -31,8 +31,7 @@ tech load [file dirname [file normalize [info script]]]/ihp-sg13g2.tech
 if {[tech name] != "ihp-sg13g2"} {quit -noprompt}
 
 # load device generator
-# NOTE:  Commented out for alpha pre-release.
-# source [file dirname [file normalize [info script]]]/ihp-sg13g2.tcl
+source [file dirname [file normalize [info script]]]/ihp-sg13g2.tcl
 
 # load bind keys (optional)
 # source [file dirname [file normalize [info script]]]/ihp-sg13g2-BindKeys

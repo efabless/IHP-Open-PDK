@@ -2,8 +2,9 @@
 # Magic/TCL design kit for IHP ihp-sg13g2
 #-----------------------------------------------------
 # Tim Edwards
-# Revision 0.1	ALPHA   8/27/2024
-# Currently a work in progress, migrating from sky130.
+# Revision 0.2	ALPHA   2/18/2025
+# Currently a work in progress, expected completion
+# date of April 2025.
 #-----------------------------------------------------
 
 if {[catch {set TECHPATH $env(PDK_ROOT)}]} {
@@ -58,9 +59,9 @@ namespace eval sg13g2 {
     dict set ruleset gate_to_diffcont 0.19      ;# Gate to diffusion contact center
     dict set ruleset gate_to_polycont 0.22      ;# Gate to poly contact center
     dict set ruleset gate_extension   0.18      ;# Poly extension beyond gate
-    dict set ruleset diff_extension   0.23      ;# Diffusion extension beyond gate
+    dict set ruleset diff_extension   0.18      ;# Diffusion extension beyond gate
     dict set ruleset contact_size     0.16      ;# Minimum contact size
-    dict set ruleset via_size         0.20      ;# Minimum via size
+    dict set ruleset via_size         0.19      ;# Minimum via size
     dict set ruleset metal_surround   0.05      ;# Metal 1 exension over contact
     dict set ruleset sub_surround     0.31      ;# Sub/well surrounds diffusion
     dict set ruleset diff_spacing     0.21      ;# Diffusion spacing rule
@@ -1019,6 +1020,10 @@ proc sg13g2::diode_dialog {device parameters} {
 
     magic::add_dependency sg13g2::diode_recalc $device sg13g2 l w area peri
 
+    if {[dict exists $parameters addports]} {
+	magic::add_checkbox doports "Add ports" $parameters
+    }
+
     # magic::add_checkbox dummy "Add dummy" $parameters
 }
 
@@ -1129,19 +1134,20 @@ proc sg13g2::diode_check {parameters} {
 proc sg13g2::dantenna_defaults {} {
     return {w 0.45 l 0.45 area 0.2025 peri 1.8 \
 	nx 1 ny 1 dummy 0 lmin 0.45 wmin 0.45 class diode \
-	elc 1 erc 1 etc 1 ebc 1 doverlap 0 \
+	elc 1 erc 1 etc 1 ebc 1 doverlap 0 doports 1 \
 	full_metal 1 vias 1 viagb 0 viagt 0 viagl 0 viagr 0}
 }
 
 proc sg13g2::dpantenna_defaults {} {
     return {w 0.45 l 0.45 area 0.2025 peri 1.8 \
 	nx 1 ny 1 dummy 0 lmin 0.45 wmin 0.45 class diode \
-	elc 1 erc 1 etc 1 ebc 1 doverlap 0 \
+	elc 1 erc 1 etc 1 ebc 1 doverlap 0 doports 1 \
 	full_metal 1 vias 1 viagb 0 viagt 0 viagl 0 viagr 0}
 }
 
 proc sg13g2::schottky_defaults {} {
-    return {nx 1 ny 1 deltax 0 deltay 0 xstep 8.0 ystep 8.0 class diode}
+    return {nx 1 ny 1 deltax 0 deltay 0 xstep 8.0 ystep 8.0 \
+	doports 1 class diode}
 }
 
 #----------------------------------------------------------------
@@ -1195,8 +1201,12 @@ proc sg13g2::diode_device {parameters} {
     set eps  0.0005
 
     # Set local default values if they are not in parameters
+    set doports 0	;# no port labels by default
     set dev_surround 0
     set dev_sub_type ""
+
+    set term_d ""	;# diffusion
+    set term_s ""	;# substrate/well
 
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
@@ -1250,6 +1260,13 @@ proc sg13g2::diode_device {parameters} {
     }
     popbox
 
+    # Diffusion port label
+    if {$term_d != ""} {
+	label $term_d c $dev_type
+	select area label
+	port make
+    }
+
     if {${w} < ${l}} {
 	set orient vert
     } else {
@@ -1293,6 +1310,7 @@ proc sg13g2::diode_draw {parameters} {
     set doverlap 0	;# overlap diodes at contacts
     set guard 0		;# draw a guard ring
     set prohibit_overlap false  ;# don't prohibit overlaps
+    set doports 0
 
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
@@ -1371,6 +1389,22 @@ proc sg13g2::diode_draw {parameters} {
     for {set xp 0} {$xp < $nx} {incr xp} {
 	pushbox
 	for {set yp 0} {$yp < $ny} {incr yp} {
+	    if {$doports} {
+		if {($ny == 1) && ($nx == 1)} {
+		    dict set parameters term_d D1
+		} elseif {$ny == 1} {
+		    dict set parameters term_d D1_$xp
+		} elseif {$nx == 1} {
+		    dict set parameters term_d D1_$yp
+		} else {
+		    dict set parameters term_d D1_${xp}_$yp
+		}
+		if {($xp == 0) && ($yp == 0)} {
+		    dict set parameters term_s D2
+		} else {
+		    dict set parameters term_s ""
+		}
+	    }
 	    sg13g2::diode_device $parameters
             box move n ${dy}um
         }
@@ -1610,7 +1644,7 @@ proc sg13g2::cap_cmim_defaults {} {
     return {w 2.00 l 2.00 val 8.0 carea 2.00 cperi 0.19 class capacitor \
 		nx 1 ny 1 dummy 0 square 0 lmin 2.00 wmin 2.00 \
 		lmax 30.0 wmax 30.0 dc 0 bconnect 1 tconnect 1 \
-		ccov 100}
+		ccov 100 doports 1}
 }
 
 #----------------------------------------------------------------
@@ -1721,6 +1755,10 @@ proc sg13g2::cap_dialog {device parameters} {
 
     magic::add_dependency sg13g2::cap_recalc $device sg13g2 l w val
 
+    if {[dict exists $parameters addports]} {
+	magic::add_checkbox doports "Add ports" $parameters
+    }
+
     # magic::add_checkbox dummy "Add dummy" $parameters
 }
 
@@ -1752,6 +1790,7 @@ proc sg13g2::cap_device {parameters} {
     set eps  0.0005
 
     # Set local default values if they are not in parameters
+    set doports 0	;# no port labels by default
     set cap_surround 0
     set bot_surround 0
     set top_surround 0
@@ -1762,6 +1801,9 @@ proc sg13g2::cap_device {parameters} {
     set top_metal_width 0   ;# top metal minimum width
     set contact_size 0	    ;# cap contact minimum size
     set ccov 100	    ;# amount of contact coverage
+
+    set term_t ""
+    set term_b ""
 
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
@@ -1879,9 +1921,21 @@ proc sg13g2::cap_device {parameters} {
 		${end_surround} ${metal_surround} \
 		${contact_size} ${bot_type} ${top_contact_type} \
 		${top_type} full]]
+    # Bottom plate port label
+    if {$term_b != ""} {
+	label $term_b c $bot_type
+	select area label
+	port make
+    }
     popbox
     popbox
 
+    # Top plate port label
+    if {$term_t != ""} {
+	label $term_t c $top_type
+	select area label
+	port make
+    }
     return $cext
 
     # cl shrinks top and bottom to accomodate larger bottom metal
@@ -1913,6 +1967,7 @@ proc sg13g2::cap_draw {parameters} {
     set bconnect 0	;# connect bottom plates in array
     set tconnect 0	;# connect top plates in array
     set top_type ""
+    set doports 0
 
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
@@ -1972,6 +2027,7 @@ proc sg13g2::cap_draw {parameters} {
 	set gy [+ $corey [* 2.0 [+ $end_spacing $diff_surround]] $contact_size]
 
 	# Draw the guard ring first.
+	if {$doports} {dict set parameters bulk B}
 	sg13g2::guard_ring $gx $gy $parameters
     }
 
@@ -1989,11 +2045,43 @@ proc sg13g2::cap_draw {parameters} {
     for {set xp 0} {$xp < $nx} {incr xp} {
 	pushbox
 	for {set yp 0} {$yp < $ny} {incr yp} {
-	    if {$sandwich == 1} {
-		sg13g2::sandwich_cap_device $parameters
-	    } else {
-		sg13g2::cap_device $parameters
+	    if {$doports} {
+		if {($ny == 1) && ($nx == 1)} {
+		    dict set parameters term_t C1
+		    dict set parameters term_b C2
+		} elseif {$ny == 1} {
+		    dict set parameters term_t C1_$xp
+		    dict set parameters term_b C2_$xp
+		} elseif {$nx == 1} {
+		    if {$tconnect} {
+			dict set parameters term_t C1
+		    } else {
+			dict set parameters term_t C1_$yp
+		    }
+		    if {$bconnect} {
+			dict set parameters term_b C2
+		    } else {
+			dict set parameters term_b C2_$yp
+		    }
+		} else {
+		    if {$tconnect} {
+			dict set parameters term_t C1_$xp
+		    } else {
+			dict set parameters term_t C1_${xp}_$yp
+		    }
+		    if {$bconnect} {
+			dict set parameters term_b C2_$xp
+		    } else {
+			dict set parameters term_b C2_${xp}_$yp
+		    }
+		}
+		if {$yp > 0} {
+		    if {$tconnect} {dict set parameters term_t ""}
+		    if {$bconnect} {dict set parameters term_b ""}
+		}
 	    }
+
+	    sg13g2::cap_device $parameters
 	    if {$ny > 1} {
 		pushbox
 		box grow e ${hmw}um
@@ -2161,29 +2249,29 @@ proc sg13g2::cap_cmim_check {parameters} {
 #----------------------------------------------------------------
 
 proc sg13g2::rsil_defaults {} {
-    return {w 0.330 l 1.650 m 1 nx 1 wmin 0.330 lmin 1.650 class resistor \
-		rho 48.2 val 241 dummy 0 dw 0.0 term 0.0 \
-		sterm 0.0 caplen 0.4 snake 0 guard 1 \
+    return {w 0.50 l 2.00 m 1 nx 1 wmin 0.50 lmin 0.50 class resistor \
+		rho 7.0 val 14.0 dummy 0 dw 0.0 term 0.0 \
+		sterm 0.0 caplen 0 snake 0 guard 1 \
 		glc 1 grc 1 gtc 1 gbc 1 roverlap 0 endcov 100 \
 		full_metal 1 hv_guard 0 n_guard 0 vias 1 \
-		viagb 0 viagt 0 viagl 0 viagr 0}
+		viagb 0 viagt 0 viagl 0 viagr 0 doports 1}
 }
 
 proc sg13g2::rppd_defaults {} {
-    return {w 0.350 l 0.50 m 1 nx 1 wmin 0.350 lmin 0.50 class resistor \
-		rho 319.8 val 456.857 dummy 0 dw 0.0 term 194.82 \
+    return {w 0.50 l 2.00 m 1 nx 1 wmin 0.50 lmin 0.50 class resistor \
+		rho 260.0 val 520.0 dummy 0 dw 0.0 term 0.0 \
 		sterm 0.0 caplen 0 guard 1 glc 1 grc 1 gtc 1 gbc 1 \
-		snake 0 full_metal 1 wmax 0.350 vias 1 n_guard 0 hv_guard 0 \
-		viagb 0 viagt 0 viagl 0 viagr 0}
+		snake 0 full_metal 1 vias 1 n_guard 0 hv_guard 0 \
+		viagb 0 viagt 0 viagl 0 viagr 0 doports 1}
 }
 
 proc sg13g2::rhigh_defaults {} {
-    return {w 0.350 l 0.50 m 1 nx 1 wmin 0.350 lmin 0.50 class resistor \
-		rho 2000 val 2875.143 dummy 0 dw 0.0 term 188.2 \
-		sterm 0.0 caplen 0 wmax 0.350 \
+    return {w 0.50 l 2.00 m 1 nx 1 wmin 0.50 lmin 0.50 class resistor \
+		rho 1360 val 2720.0 dummy 0 dw 0.0 term 0.0 \
+		sterm 0.0 caplen 0 \
 		guard 1 glc 1 grc 1 gtc 1 gbc 1 \
 		snake 0 full_metal 1 n_guard 0 hv_guard 0 vias 1 \
-		viagb 0 viagt 0 viagl 0 viagr 0}
+		viagb 0 viagt 0 viagl 0 viagr 0 doports 1}
 }
 
 #----------------------------------------------------------------
@@ -2194,45 +2282,45 @@ proc sg13g2::rhigh_defaults {} {
 #----------------------------------------------------------------
 
 proc sg13g2::rm1_defaults {} {
-    return {w 0.140 l 0.140 m 1 nx 1 wmin 0.14 lmin 0.14 class resistor \
-		rho 0.125 val 0.125 dummy 0 dw 0.0 term 0.0 \
-		roverlap 0}
+    return {w 0.160 l 0.100 m 1 nx 1 wmin 0.16 lmin 0.005 class resistor \
+		rho 0.110 val 0.069 dummy 0 dw 0.0 term 0.0 \
+		roverlap 0 doports 1}
 }
 
 proc sg13g2::rm2_defaults {} {
-    return {w 0.140 l 0.140 m 1 nx 1 wmin 0.14 lmin 0.14 class resistor \
-		rho 0.125 val 0.125 dummy 0 dw 0.0 term 0.0 \
-		roverlap 0}
+    return {w 0.200 l 0.100 m 1 nx 1 wmin 0.20 lmin 0.005 class resistor \
+		rho 0.088 val 0.044 dummy 0 dw 0.0 term 0.0 \
+		roverlap 0 doports 1}
 }
 
 proc sg13g2::rm3_defaults {} {
-    return {w 0.300 l 0.300 m 1 nx 1 wmin 0.30 lmin 0.30 class resistor \
-		rho 0.047 val 0.047 dummy 0 dw 0.0 term 0.0 \
-		roverlap 0}
+    return {w 0.200 l 0.100 m 1 nx 1 wmin 0.20 lmin 0.005 class resistor \
+		rho 0.088 val 0.044 dummy 0 dw 0.0 term 0.0 \
+		roverlap 0 doports 1}
 }
 
 proc sg13g2::rm4_defaults {} {
-    return {w 0.300 l 0.300 m 1 nx 1 wmin 0.30 lmin 0.30 class resistor \
-		rho 0.047 val 0.047 dummy 0 dw 0.0 term 0.0 \
-		roverlap 0}
+    return {w 0.200 l 0.100 m 1 nx 1 wmin 0.20 lmin 0.005 class resistor \
+		rho 0.088 val 0.044 dummy 0 dw 0.0 term 0.0 \
+		roverlap 0 doports 1}
 }
 
 proc sg13g2::rm5_defaults {} {
-    return {w 0.300 l 0.300 m 1 nx 1 wmin 0.30 lmin 0.30 class resistor \
-		rho 0.047 val 0.047 dummy 0 dw 0.0 term 0.0 \
-		roverlap 0}
+    return {w 0.200 l 0.100 m 1 nx 1 wmin 0.20 lmin 0.005 class resistor \
+		rho 0.088 val 0.044 dummy 0 dw 0.0 term 0.0 \
+		roverlap 0 doports 1}
 }
 
 proc sg13g2::rm6_defaults {} {
-    return {w 0.300 l 0.300 m 1 nx 1 wmin 0.30 lmin 0.30 class resistor \
-		rho 0.047 val 0.047 dummy 0 dw 0.0 term 0.0 \
-		roverlap 0}
+    return {w 1.640 l 0.100 m 1 nx 1 wmin 1.64 lmin 0.005 class resistor \
+		rho 0.018 val 0.001098 dummy 0 dw 0.0 term 0.0 \
+		roverlap 0 doports 1}
 }
 
 proc sg13g2::rm7_defaults {} {
-    return {w 1.600 l 1.600 m 1 nx 1 wmin 1.60 lmin 1.60 class resistor \
-		rho 0.029 val 0.029 dummy 0 dw 0.0 term 0.0 \
-		roverlap 0}
+    return {w 2.000 l 0.100 m 1 nx 1 wmin 2.00 lmin 0.005 class resistor \
+		rho 0.011 val 0.00055 dummy 0 dw 0.0 term 0.0 \
+		roverlap 0 doports 1}
 }
 
 #----------------------------------------------------------------
@@ -2381,6 +2469,10 @@ proc sg13g2::res_dialog {device parameters} {
     } else {
        magic::add_dependency sg13g2::res_recalc $device sg13g2 l w val nx
     }
+
+    if {[dict exists $parameters addports]} {
+	magic::add_checkbox doports "Add ports" $parameters
+    }
 }
 
 #----------------------------------------------------------------
@@ -2434,6 +2526,7 @@ proc sg13g2::res_device {parameters} {
     set eps  0.0005
 
     # Set local default values if they are not in parameters
+    set doports 0		;# no port labels by default
     set endcov 0	 	;# percent coverage of end contacts
     set roverlap 0		;# overlap resistors at end contacts
     set well_res_overlap 0 	;# not a well resistor
@@ -2442,6 +2535,9 @@ proc sg13g2::res_device {parameters} {
     set vias 0			;# add vias over contacts
     set l_delta 0		;# delta between measured and drawn length
     set res_idtype none
+
+    set term_t ""
+    set term_b ""
 
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
@@ -2539,6 +2635,11 @@ proc sg13g2::res_device {parameters} {
     set cext [sg13g2::unionbox $cext [sg13g2::getbox]]
     popbox
 
+    if {$term_t != ""} {
+	label $term_t c $end_type
+	select area label
+	port make
+    }
     if {${end_contact_type} != ""} {
 	# Draw via over contact first
 	if {$vias != 0} {
@@ -2575,6 +2676,11 @@ proc sg13g2::res_device {parameters} {
     set cext [sg13g2::unionbox $cext [sg13g2::getbox]]
     popbox
 
+    if {$term_b != ""} {
+	label $term_b c $end_type
+	select area label
+	port make
+    }
     if {${end_contact_type} != ""} {
 	# Draw via over contact first
 	if {$vias != 0} {
@@ -2611,10 +2717,15 @@ proc sg13g2::res_snake_device {nf parameters} {
     set eps  0.0005
 
     # Set local default values if they are not in parameters
+    set doports 0		;# no port labels by default
     set endcov 100	 	;# percent coverage of end contacts
+    set vias 0			;# add vias over terminal contacts
     set well_res_overlap 0 	;# not a well resistor
     set end_contact_type ""	;# no contacts for metal resistors
     set mask_clearance 0	;# additional length to clear mask
+
+    set term_t ""
+    set term_b ""
 
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
@@ -2669,7 +2780,26 @@ proc sg13g2::res_snake_device {nf parameters} {
     set cext [sg13g2::getbox]
     popbox
 
+    if {$term_t != ""} {
+	label $term_t c $end_type
+	select area label
+	port make
+    }
     if {${end_contact_type} != ""} {
+        # Draw via over contact first
+	if {$vias != 0} {
+	    pushbox
+	    set ch $res_to_endcont
+	    if {$ch < $via_size} {set ch $via_size}
+	    set cw $epl
+	    if {$cw < $via_size} {set cw $via_size}
+	    box grow n [- $ch [/ $via_size 2]]um
+	    box grow s [/ $via_size 2]um
+	    box grow w [/ $cw 2]um
+	    box grow e [/ $cw 2]um
+	    sg13g2::via1_draw
+	    popbox
+	}
 	set cext [sg13g2::draw_contact ${cpl} 0 \
 		${end_surround} ${metal_surround} \
 		${end_contact_size} ${end_type} ${end_contact_type} m1 horz]
@@ -2762,7 +2892,31 @@ proc sg13g2::res_snake_device {nf parameters} {
     set cext [sg13g2::unionbox $cext [sg13g2::getbox]]
     popbox
 
+    if {$term_b != ""} {
+	label $term_b c $end_type
+	select area label
+	port make
+    }
     if {${end_contact_type} != ""} {
+	# Draw via over contact first
+	if {$vias != 0} {
+	    pushbox
+	    set ch $res_to_endcont
+	    if {$ch < $via_size} {set ch $via_size}
+	    set cw $epl
+	    if {$cw < $via_size} {set cw $via_size}
+	    if {$dir == "n"} {
+		box grow n [/ $via_size 2]um
+		box grow s [- $ch [/ $via_size 2]]um
+	    } else {
+		box grow n [- $ch [/ $via_size 2]]um
+		box grow s [/ $via_size 2]um
+	    }
+	    box grow w [/ $cw 2]um
+	    box grow e [/ $cw 2]um
+	    sg13g2::via1_draw
+	    popbox
+	}
 	set cext [sg13g2::unionbox $cext [sg13g2::draw_contact ${cpl} 0 \
 		${end_surround} ${metal_surround} \
 		${end_contact_size} ${end_type} ${end_contact_type} m1 horz]]
@@ -2811,6 +2965,7 @@ proc sg13g2::res_draw {parameters} {
     set well_res_overlap 0	;# additional well extension behind contact
     set res_diff_spacing 0	;# spacing from resistor to diffusion
     set res_idtype  none
+    set doports 0
 
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
@@ -2889,6 +3044,7 @@ proc sg13g2::res_draw {parameters} {
 	set gy [+ $corey [* 2.0 [+ $end_spacing $guard_diff_surround]] $contact_size]
 
 	# Draw the guard ring first, because well resistors are on the substrate plane
+	if {$doports} {dict set parameters bulk B}
 	sg13g2::guard_ring $gx $gy $parameters
     }
 
@@ -2899,6 +3055,21 @@ proc sg13g2::res_draw {parameters} {
     for {set xp 0} {$xp < $nx} {incr xp} {
 	pushbox
 	for {set yp 0} {$yp < $m} {incr yp} {
+	    if {$doports} {
+		if {($m == 1) && ($nx == 1)} {
+		     dict set parameters term_t R1
+		     dict set parameters term_b R2
+		} elseif {$m == 1} {
+		     dict set parameters term_t R1_$xp
+		     dict set parameters term_b R2_$xp
+		} elseif {$nx == 1} {
+		     dict set parameters term_t R1_$yp
+		     dict set parameters term_b R2_$yp
+		} else {
+		     dict set parameters term_t R1_${xp}_$yp
+		     dict set parameters term_b R2_${xp}_$yp
+		}
+	    }
 	    if {$snake == 1} {
 		sg13g2::res_snake_device $nf $parameters
 	    } else {
@@ -2963,7 +3134,7 @@ proc sg13g2::rsil_draw {parameters} {
     }
 
     set newdict [dict create \
-	    res_type		npres \
+	    res_type		nres \
 	    end_type 		poly \
 	    end_contact_type	pc \
 	    plus_diff_type	$gdifftype \
@@ -2974,10 +3145,10 @@ proc sg13g2::rsil_draw {parameters} {
 	    end_spacing		0.48 \
 	    end_to_end_space	0.52 \
 	    res_to_cont		0.575 \
-	    res_to_endcont	1.985 \
+	    res_to_endcont	0.2 \
 	    res_spacing		$poly_spacing \
 	    res_diff_spacing	0.48 \
-	    mask_clearance	0.52 \
+	    mask_clearance	0.0 \
 	    overlap_compress	0.36 \
     ]
 
@@ -3036,10 +3207,9 @@ proc sg13g2::rppd_draw {parameters} {
     }
 
     set newdict [dict create \
-	    res_type		ppres \
-	    end_type 		xpc \
-	    end_contact_type	xpc \
-	    end_contact_size	0 \
+	    res_type		pres \
+	    end_type 		pc \
+	    end_contact_type	pc \
 	    plus_diff_type	$gdifftype \
 	    plus_contact_type	$gdiffcont \
 	    sub_type		$gsubtype \
@@ -3047,14 +3217,12 @@ proc sg13g2::rppd_draw {parameters} {
 	    end_surround	$poly_surround \
 	    end_spacing		$gresdiff_end \
 	    end_to_end_space	0.52 \
-	    end_contact_size	0.19 \
 	    res_to_cont		0.575 \
-	    res_to_endcont	1.985 \
+	    res_to_endcont	0.2 \
 	    res_spacing		0.48 \
 	    res_diff_spacing	$gresdiff_spacing \
-	    mask_clearance	-2.16 \
+	    mask_clearance	0.5 \
 	    overlap_compress	0.36 \
-	    l_delta		-0.08 \
     ]
     set drawdict [dict merge $sg13g2::ruleset $newdict $parameters]
     return [sg13g2::res_draw $drawdict]
@@ -3111,10 +3279,9 @@ proc sg13g2::rhigh_draw {parameters} {
     }
 
     set newdict [dict create \
-	    res_type		xpres \
-	    end_type 		xpc \
-	    end_contact_type	xpc \
-	    end_contact_size	0 \
+	    res_type		xres \
+	    end_type 		pc \
+	    end_contact_type	pc \
 	    plus_diff_type	$gdifftype \
 	    plus_contact_type	$gdiffcont \
 	    sub_type		$gsubtype \
@@ -3122,14 +3289,12 @@ proc sg13g2::rhigh_draw {parameters} {
 	    end_surround	$poly_surround \
 	    end_spacing		$gresdiff_end \
 	    end_to_end_space	0.52 \
-	    end_contact_size	0.19 \
 	    res_to_cont		0.575 \
-	    res_to_endcont	1.985 \
+	    res_to_endcont	0.2 \
 	    res_spacing		0.48 \
 	    res_diff_spacing	$gresdiff_spacing \
 	    mask_clearance	0.52 \
 	    overlap_compress	0.36 \
-	    l_delta		-0.08 \
     ]
     set drawdict [dict merge $sg13g2::ruleset $newdict $parameters]
     return [sg13g2::res_draw $drawdict]
@@ -3503,7 +3668,7 @@ proc sg13g2::sg13_lv_pmos_defaults {} {
 		topc 1 botc 1 poverlap 0 doverlap 1 lmin 0.13 wmin 0.15 \
 		class mosfet compatible {sh13_lv_pmos sh13_hv_pmos} full_metal 1 \
 		viasrc 100 viadrn 100 viagate 100 \
-		viagb 0 viagr 0 viagl 0 viagt 0}
+		viagb 0 viagr 0 viagl 0 viagt 0 doports 1}
 }
 
 proc sg13g2::sg13_hv_pmos_defaults {} {
@@ -3512,7 +3677,7 @@ proc sg13g2::sg13_hv_pmos_defaults {} {
 		topc 1 botc 1 poverlap 0 doverlap 1 lmin 0.4 wmin 0.15 \
 		class mosfet compatible {sg13_lv_pmos sg13_hv_pmos} full_metal 1 \
 		viasrc 100 viadrn 100 viagate 100 \
-		viagb 0 viagr 0 viagl 0 viagt 0}
+		viagb 0 viagr 0 viagl 0 viagt 0 doports 1}
 }
 
 #----------------------------------------------------------------
@@ -3526,7 +3691,7 @@ proc sg13g2::sg13_lv_nmos_defaults {} {
 		topc 1 botc 1 poverlap 0 doverlap 1 lmin 0.13 wmin 0.15 \
 		class mosfet compatible {sg13_lv_nmos sg13_hv_nmos nmosi nmosiHV} \
 		full_metal 1 viasrc 100 viadrn 100 viagate 100 \
-		viagb 0 viagr 0 viagl 0 viagt 0}
+		viagb 0 viagr 0 viagl 0 viagt 0 doports 1}
 }
 
 proc sg13g2::sg13_hv_nmos_defaults {} {
@@ -3535,7 +3700,7 @@ proc sg13g2::sg13_hv_nmos_defaults {} {
 		topc 1 botc 1 poverlap 0 doverlap 1 lmin 0.45 wmin 0.15 \
 		class mosfet compatible {sg13_lv_nmos sg13_hv_nmos nmosi nmosiHV} \
 		full_metal 1 viasrc 100 viadrn 100 viagate 100 \
-		viagb 0 viagr 0 viagl 0 viagt 0}
+		viagb 0 viagr 0 viagl 0 viagt 0 doports 1}
 }
 
 proc sg13g2::nmosi_defaults {} {
@@ -3545,7 +3710,7 @@ proc sg13g2::nmosi_defaults {} {
 		class mosfet \
 		compatible {sg13_lv_nmos sg13_hv_nmos nmosi nmosiHV} \
 		full_metal 1 viasrc 100 viadrn 100 viagate 100 \
-		viagb 0 viagr 0 viagl 0 viagt 0}
+		viagb 0 viagr 0 viagl 0 viagt 0 doports 1}
 }
 
 proc sg13g2::nmosiHV_defaults {} {
@@ -3555,7 +3720,7 @@ proc sg13g2::nmosiHV_defaults {} {
 		class mosfet \
 		compatible {sg13_lv_nmos sg13_hv_nmos nmosi nmosiHV} \
 		full_metal 1 viasrc 100 viadrn 100 viagate 100 \
-		viagb 0 viagr 0 viagl 0 viagt 0}
+		viagb 0 viagr 0 viagl 0 viagt 0 doports 1}
 }
 
 #----------------------------------------------------------------
@@ -3686,6 +3851,12 @@ proc sg13g2::mos_dialog {device parameters} {
     magic::add_entry viagt "Top guard ring via coverage \[+/-\](%)" $parameters
     magic::add_entry viagr "Right guard ring via coverage \[+/-\](%)" $parameters
     magic::add_entry viagl "Left guard ring via coverage \[+/-\](%)" $parameters
+
+    if {[dict exists $parameters addports]} {
+	magic::add_checkbox doports "Add ports" $parameters
+    }
+
+    # magic::add_checkbox dummy "Add dummy" $parameters
 }
 
 #----------------------------------------------------------------
@@ -3835,6 +4006,7 @@ proc sg13g2::guard_ring {gw gh parameters} {
     set plus_diff_type   nsd	;# guard ring diffusion type
     set plus_contact_type nsc	;# guard ring diffusion contact type
     set sub_type	 pwell	;# substrate type
+    set bulk ""		;# Default no port label
 
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
@@ -3874,6 +4046,7 @@ proc sg13g2::guard_ring {gw gh parameters} {
     popbox
     pushbox
     box move s ${hh}um
+    pushbox
     box grow n ${hdifft}um
     box grow s ${hdifft}um
     box grow e ${hdiffw}um
@@ -3882,6 +4055,13 @@ proc sg13g2::guard_ring {gw gh parameters} {
     if {$guard_sub_surround > 0} {
 	box grow c ${guard_sub_surround}um
 	paint $guard_sub_type
+    }
+    popbox
+    # At guard ring bottom center, place a port if requested
+    if {$bulk != ""} {
+	label $bulk c $plus_diff_type
+	select area label
+	port make
     }
     popbox
     pushbox
@@ -4112,6 +4292,7 @@ proc sg13g2::mos_device {parameters} {
     set eps  0.0005
 
     # Set local default values if they are not in parameters
+    set doports 0	;# no port labels by default
     set diffcov 100	;# percent coverage of diffusion contact
     set polycov 100	;# percent coverage of poly contact
     set topc 1		;# draw top poly contact
@@ -4127,10 +4308,19 @@ proc sg13g2::mos_device {parameters} {
     set gshield 0	;# no metal shield over gate (used for varactors)
     set drain_proc {}	;# no special procedure to draw the drain
 
+    set drain ""
+    set source ""
+    set gate ""
+
     # Set a local variable for each parameter (e.g., $l, $w, etc.)
     foreach key [dict keys $parameters] {
         set $key [dict get $parameters $key]
     }
+
+    # "topc" and "botc" may be modified for alternating top-bottom gate
+    # contacts.  If so, original values are in "oldtopc" and "oldbotc".
+    if {![dict exists $parameters oldtopc]} {set oldtopc $topc}
+    if {![dict exists $parameters oldbotc]} {set oldbotc $botc}
 
     # Draw the diffusion and poly
     pushbox
@@ -4264,6 +4454,7 @@ proc sg13g2::mos_device {parameters} {
 	dict set parameters cdwfull $cdwfull
 	dict set parameters dside $dside
 	dict set parameters sside $sside
+	dict set parameters doports $doports
 	set cext [sg13g2::unionbox $cext [eval $drain_proc {$parameters}]]
     } else {
 	# Drain diffusion contact
@@ -4297,6 +4488,11 @@ proc sg13g2::mos_device {parameters} {
 	set cext [sg13g2::unionbox $cext [sg13g2::draw_contact 0 ${cdw} \
 		${diff_surround} ${metal_surround} \
 		${contact_size} ${diff_type} ${diff_contact_type} m1 vert]]
+	if {$drain != ""} {
+            label $drain c $idff_contact_type
+            select area label
+            port make
+	}
 	popbox
     }
 
@@ -4331,6 +4527,11 @@ proc sg13g2::mos_device {parameters} {
     set cext [sg13g2::unionbox $cext [sg13g2::draw_contact 0 ${cdw} \
 		${diff_surround} ${metal_surround} \
 		${contact_size} ${diff_type} ${diff_contact_type} m1 vert]]
+    if {$source != ""} {
+        label $source c $diff_contact_type
+        select area label
+        port make
+    }
     set diffarea $cext
     popbox
     # Gate shield (only on varactors)
@@ -4355,7 +4556,7 @@ proc sg13g2::mos_device {parameters} {
 	popbox
     }
     # Top poly contact
-    if {$topc} {
+    if {$topc && $oldtopc} {
        pushbox
        box move n ${hw}um
        box move n ${gate_to_polycont}um
@@ -4385,10 +4586,15 @@ proc sg13g2::mos_device {parameters} {
        set cext [sg13g2::unionbox $cext [sg13g2::draw_contact ${cpl} 0 \
 		${poly_surround} ${metal_surround} \
 		${contact_size} ${poly_type} ${poly_contact_type} m1 horz]]
+       if {$gate != ""} {
+	   label $gate c $poly_contact_type
+	   select area label
+	   port make
+       }
        popbox
     }
     # Bottom poly contact
-    if {$botc} {
+    if {$botc && $oldbotc} {
        pushbox
        box move s ${hw}um
        box move s ${gate_to_polycont}um
@@ -4418,6 +4624,11 @@ proc sg13g2::mos_device {parameters} {
        set cext [sg13g2::unionbox $cext [sg13g2::draw_contact ${cpl} 0 \
 		${poly_surround} ${metal_surround} \
 		${contact_size} ${poly_type} ${poly_contact_type} m1 horz]]
+       if {($gate != "") && ($topc == 0)} {
+	   label $gate c $poly_contact_type
+	   select area label
+	   port make
+       }
        popbox
     }
 
@@ -4475,6 +4686,7 @@ proc sg13g2::mos_draw {parameters} {
     set id_surround 0	;# amount of surround on above type
     set id2_type ""	;# additional type covering everything
     set id2_surround 0	;# amount of surround on above type
+    set doports 0	;# no port labels unless requested
 
     set set_x_to_guard ""	;# override x distance to guard ring
     set set_y_to_guard ""	;# override y distance to guard ring
@@ -4635,6 +4847,7 @@ proc sg13g2::mos_draw {parameters} {
 	}
     }
     if {$guard != 0} {
+	if {$doports} {dict set parameters bulk B}
 	# Draw the guard ring first, as MOS well may interact with guard ring substrate
 	sg13g2::guard_ring $gx $gy $parameters
     }
@@ -4671,6 +4884,56 @@ proc sg13g2::mos_draw {parameters} {
 	    set saveeo $evenodd
 	}
         for {set yp 0} {$yp < $m} {incr yp} {
+	    # Apply rules for source/drain/gate port labeling
+	    if {$doports && ($m == 1)} {
+		if {$nf == 1} {
+		    dict set parameters drain D
+		    dict set parameters source S
+		    dict set parameters gate G
+		} else {
+		    if {$doverlap && $evens && ($xp > 0)} {
+			dict set parameters drain ""
+		    } else {
+			dict set parameters drain D$xp
+		    }
+		    if {$doverlap  && ($evens == 0) && ($xp < $nf-1)} {
+			dict set parameters source ""
+		    } else {
+			dict set parameters source S$xp
+		    }
+		    dict set parameters gate G$xp
+		}
+	    } elseif {$doports} {
+		if {$nf == 1} {
+		    dict set parameters drain D$yp
+		    dict set parameters source S$yp
+		    if {$poverlap && ($yp == 0)} {
+			dict set parameters gate G
+		    } elseif {$poverlap} {
+			dict set parameters gate ""
+		    } else {
+			dict set parameters gate G$yp
+		    }
+		} else {
+		    if {$doverlap && $evens && ($xp > 0)} {
+			dict set parameters drain ""
+		    } else {
+			dict set parameters drain D${xp}_$yp
+		    }
+		    if {$doverlap && ($evens == 0) && ($xp < $nf-1)} {
+			dict set parameters source ""
+		    } else {
+			dict set parameters source S${xp}_$yp
+		    }
+		    if {$poverlap && ($yp == 0)} {
+			dict set parameters gate G$xp
+		    } elseif {$poverlap} {
+			dict set parameters gate ""
+		    } else {
+			dict set parameters gate G${xp}_$yp
+		    }
+		}
+	    }
             if {$evens != 0} {box move e ${xoffset}um}
             sg13g2::mos_device $parameters
             if {$evens != 0} {box move w ${xoffset}um}
